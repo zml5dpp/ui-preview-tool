@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习课程预览</title>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        body { 
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; 
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        /* Tab导航 */
+        .tab-container {
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            padding: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            gap: 5px;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            border: 2px solid transparent;
+        }
+        
+        .tab.active {
+            background: transparent;
+            color: #333;
+            border: 2px solid #333;
+            font-weight: 600;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #f0f0f0;
+        }
+        
+        /* 预览容器 - 左右并排 */
+        .preview-row {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        
+        /* 手机预览容器 */
+        .mobile-preview {
+            width: 262.5px; /* 375 * 0.7 */
+            height: 568.4px; /* 812 * 0.7 */
+            position: relative;
+        }
+        
+        /* 手机UI容器 */
+        .mobile-container {
+            width: 375px;
+            height: 812px;
+            position: relative;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transform: scale(0.7);
+            transform-origin: top left;
+        }
+        
+        /* Pad预览容器 */
+        .pad-preview {
+            width: 819.6px; /* 1366 * 0.6 */
+            height: 446.4px; /* 744 * 0.6 */
+            position: relative;
+        }
+        
+        /* Pad UI容器 */
+        .pad-container {
+            width: 1366px;
+            height: 744px;
+            position: relative;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transform: scale(0.6);
+            transform-origin: top left;
+        }
+        
+        /* 其他学科的手机容器 */
+        .content-container {
+            display: flex;
+            justify-content: center;
+        }
+        
+        .ui-container {
+            width: 375px;
+            height: 812px;
+            position: relative;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transform: scale(0.7);
+            transform-origin: top left;
+        }
+        
+        /* Pad最底层 */
+        .pad-bottom-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        /* Pad上传的背景层 - 中间层 */
+        .pad-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 270px;
+            object-fit: cover;
+            display: none;
+            z-index: 2;
+        }
+        
+        /* Pad最上层容器 */
+        .pad-top-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+        }
+        
+        /* Pad可替换图片区域 */
+        .pad-preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 270px;
+            cursor: pointer;
+            overflow: hidden;
+            z-index: 4;
+        }
+        
+        /* Pad半透明提示层 */
+        .pad-upload-hint {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.4);
+            flex-direction: column;
+        }
+        
+        /* 上传的图片 - 在最下层 */
+        .uploaded-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 270px;
+            object-fit: cover;
+            display: none;
+            z-index: 1;
+        }
+        
+        /* 图床图片 - 在上层 */
+        .ui-background {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* 可替换图片区域 */
+        .preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 270px;
+            cursor: pointer;
+            overflow: hidden;
+            z-index: 3;
+        }
+        
+        /* 半透明提示层 */
+        .upload-hint {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.4);
+            flex-direction: column;
+        }
+        
+        /* 上传按钮 - 白色描边 - 不受缩放影响 */
+        .upload-button {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            /* 手机按钮取消缩放影响 */
+            transform: scale(1.429); /* 1 / 0.7 = 1.429 */
+            transform-origin: center;
+        }
+        
+        .upload-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .file-input { 
+            display: none; 
+        }
+        
+        /* Tab内容 */
+        .tab-content {
+            display: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* 错误提示 - 不受缩放影响 */
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            text-align: center;
+            z-index: 100;
+            max-width: 90%;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            line-height: 1.2;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        /* 手机错误提示 - 取消缩放影响 */
+        .mobile-container .error-message {
+            transform: translate(-50%, -50%) scale(1.429); /* 1 / 0.7 = 1.429 */
+            transform-origin: center;
+        }
+        
+        /* Pad错误提示 - 取消缩放影响 */
+        .pad-container .error-message {
+            transform: translate(-50%, -50%) scale(1.667); /* 1 / 0.6 = 1.667 */
+            transform-origin: center;
+        }
+        
+        /* Pad上传按钮 - 取消缩放影响 */
+        .pad-container .upload-button {
+            transform: scale(1.667); /* 1 / 0.6 = 1.667 */
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Tab导航 -->
+    <div class="tab-container">
+        <div class="tab active" data-tab="reading">阅读</div>
+        <div class="tab" data-tab="thinking">思维</div>
+        <div class="tab" data-tab="art">美育</div>
+        <div class="tab" data-tab="english">英语</div>
+        <div class="tab" data-tab="writer">小作家</div>
+    </div>
+    
+    <!-- 阅读Tab内容 -->
+    <div class="tab-content active" id="reading">
+        <div class="preview-row">
+            <!-- 手机预览 -->
+            <div class="mobile-preview">
+                <div class="mobile-container">
+                    <img id="readingBackground" class="uploaded-background">
+                    <img src="https://s21.ax1x.com/2025/11/14/pZPlQAS.png" alt="阅读UI" class="ui-background">
+                    <div class="preview-overlay" onclick="document.getElementById('readingInput').click()">
+                        <div class="upload-hint" id="readingHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('readingInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pad预览 -->
+            <div class="pad-preview">
+                <div class="pad-container">
+                    <img src="https://s21.ax1x.com/2025/11/14/pZP1n29.png" alt="Pad底层" class="pad-bottom-layer">
+                    <img id="padReadingBackground" class="pad-background">
+                    <img src="https://s21.ax1x.com/2025/11/14/pZP1uvR.png" alt="Pad上层" class="pad-top-layer">
+                    <div class="pad-preview-overlay" onclick="document.getElementById('padReadingInput').click()">
+                        <div class="pad-upload-hint" id="padReadingHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('padReadingInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="file" id="readingInput" class="file-input" accept="image/*">
+        <input type="file" id="padReadingInput" class="file-input" accept="image/*">
+    </div>
+    
+    <!-- 思维Tab内容 -->
+    <div class="tab-content" id="thinking">
+        <div class="preview-row">
+            <!-- 手机预览 -->
+            <div class="mobile-preview">
+                <div class="mobile-container">
+                    <img id="thinkingBackground" class="uploaded-background">
+                    <img src="https://s21.ax1x.com/2025/11/14/pZPlG1s.png" alt="思维UI" class="ui-background">
+                    <div class="preview-overlay" onclick="document.getElementById('thinkingInput').click()">
+                        <div class="upload-hint" id="thinkingHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('thinkingInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pad预览 -->
+            <div class="pad-preview">
+                <div class="pad-container">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiE7Ed.png" alt="Pad底层" class="pad-bottom-layer">
+                    <img id="padThinkingBackground" class="pad-background">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiEXgf.png" alt="Pad上层" class="pad-top-layer">
+                    <div class="pad-preview-overlay" onclick="document.getElementById('padThinkingInput').click()">
+                        <div class="pad-upload-hint" id="padThinkingHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('padThinkingInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="file" id="thinkingInput" class="file-input" accept="image/*">
+        <input type="file" id="padThinkingInput" class="file-input" accept="image/*">
+    </div>
+    
+    <!-- 美育Tab内容 -->
+    <div class="tab-content" id="art">
+        <div class="preview-row">
+            <!-- 手机预览 -->
+            <div class="mobile-preview">
+                <div class="mobile-container">
+                    <img id="artBackground" class="uploaded-background">
+                    <img src="https://s21.ax1x.com/2025/11/14/pZPl8pj.png" alt="美育UI" class="ui-background">
+                    <div class="preview-overlay" onclick="document.getElementById('artInput').click()">
+                        <div class="upload-hint" id="artHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('artInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pad预览 -->
+            <div class="pad-preview">
+                <div class="pad-container">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiEHUA.png" alt="Pad底层" class="pad-bottom-layer">
+                    <img id="padArtBackground" class="pad-background">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiEb4I.png" alt="Pad上层" class="pad-top-layer">
+                    <div class="pad-preview-overlay" onclick="document.getElementById('padArtInput').click()">
+                        <div class="pad-upload-hint" id="padArtHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('padArtInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="file" id="artInput" class="file-input" accept="image/*">
+        <input type="file" id="padArtInput" class="file-input" accept="image/*">
+    </div>
+    
+    <!-- 英语Tab内容 -->
+    <div class="tab-content" id="english">
+        <div class="preview-row">
+            <!-- 手机预览 -->
+            <div class="mobile-preview">
+                <div class="mobile-container">
+                    <img id="englishBackground" class="uploaded-background">
+                    <img src="https://s21.ax1x.com/2025/11/14/pZPl1hQ.png" alt="英语UI" class="ui-background">
+                    <div class="preview-overlay" onclick="document.getElementById('englishInput').click()">
+                        <div class="upload-hint" id="englishHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('englishInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pad预览 -->
+            <div class="pad-preview">
+                <div class="pad-container">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiExKS.png" alt="Pad底层" class="pad-bottom-layer">
+                    <img id="padEnglishBackground" class="pad-background">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiEjv8.png" alt="Pad上层" class="pad-top-layer">
+                    <div class="pad-preview-overlay" onclick="document.getElementById('padEnglishInput').click()">
+                        <div class="pad-upload-hint" id="padEnglishHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('padEnglishInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="file" id="englishInput" class="file-input" accept="image/*">
+        <input type="file" id="padEnglishInput" class="file-input" accept="image/*">
+    </div>
+    
+    <!-- 小作家Tab内容 -->
+    <div class="tab-content" id="writer">
+        <div class="preview-row">
+            <!-- 手机预览 -->
+            <div class="mobile-preview">
+                <div class="mobile-container">
+                    <img id="writerBackground" class="uploaded-background">
+                    <img src="https://s21.ax1x.com/2025/11/14/pZPlltg.png" alt="小作家UI" class="ui-background">
+                    <div class="preview-overlay" onclick="document.getElementById('writerInput').click()">
+                        <div class="upload-hint" id="writerHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('writerInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pad预览 -->
+            <div class="pad-preview">
+                <div class="pad-container">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiEO8P.png" alt="Pad底层" class="pad-bottom-layer">
+                    <img id="padWriterBackground" class="pad-background">
+                    <img src="https://s21.ax1x.com/2025/11/17/pZiELCt.png" alt="Pad上层" class="pad-top-layer">
+                    <div class="pad-preview-overlay" onclick="document.getElementById('padWriterInput').click()">
+                        <div class="pad-upload-hint" id="padWriterHint">
+                            <button class="upload-button" onclick="event.stopPropagation(); document.getElementById('padWriterInput').click()">
+                                上传头部背景
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="file" id="writerInput" class="file-input" accept="image/*">
+        <input type="file" id="padWriterInput" class="file-input" accept="image/*">
+    </div>
+    
+    <script>
+        // Tab切换功能
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // 移除所有active类
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // 添加active类到当前tab
+                this.classList.add('active');
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+        
+        // 图片尺寸验证函数
+        function validateImage(file, targetWidth, targetHeight, errorMessage) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                
+                img.onload = function() {
+                    URL.revokeObjectURL(url);
+                    
+                    if (img.width === targetWidth && img.height === targetHeight) {
+                        resolve(); // 验证通过
+                    } else {
+                        reject(errorMessage); // 验证失败
+                    }
+                };
+                
+                img.onerror = function() {
+                    URL.revokeObjectURL(url);
+                    reject('图片加载失败，请重新选择');
+                };
+                
+                img.src = url;
+            });
+        }
+        
+        // 显示错误提示
+        function showError(container, message) {
+            // 移除现有的错误提示
+            const existingError = container.querySelector('.error-message');
+            if (existingError) {
+                existingError.remove();
+            }
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            container.appendChild(errorDiv);
+            
+            // 3秒后自动移除错误提示
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.remove();
+                }
+            }, 3000);
+        }
+        
+        // 为每个tab设置图片上传功能（手机）
+        function setupMobileImageUpload(inputId, backgroundId, hintId, container) {
+            const inputElement = document.getElementById(inputId);
+            const backgroundElement = document.getElementById(backgroundId);
+            const hintElement = document.getElementById(hintId);
+            
+            inputElement.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    validateImage(file, 750, 540, '请上传750×540大小的图片')
+                        .then(() => {
+                            // 验证通过，显示图片
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                backgroundElement.src = e.target.result;
+                                backgroundElement.style.display = 'block';
+                                hintElement.style.display = 'none';
+                                
+                                // 移除可能的错误提示
+                                const existingError = container.querySelector('.error-message');
+                                if (existingError) {
+                                    existingError.remove();
+                                }
+                            };
+                            reader.readAsDataURL(file);
+                        })
+                        .catch((errorMessage) => {
+                            // 验证失败，显示错误提示
+                            showError(container, errorMessage);
+                            // 清空文件输入
+                            inputElement.value = '';
+                        });
+                }
+            });
+        }
+        
+        // 为每个tab设置图片上传功能（Pad）
+        function setupPadImageUpload(inputId, backgroundId, hintId, container) {
+            const inputElement = document.getElementById(inputId);
+            const backgroundElement = document.getElementById(backgroundId);
+            const hintElement = document.getElementById(hintId);
+            
+            inputElement.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    validateImage(file, 2732, 540, '请上传2732×540大小的图片')
+                        .then(() => {
+                            // 验证通过，显示图片
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                backgroundElement.src = e.target.result;
+                                backgroundElement.style.display = 'block';
+                                hintElement.style.display = 'none';
+                                
+                                // 移除可能的错误提示
+                                const existingError = container.querySelector('.error-message');
+                                if (existingError) {
+                                    existingError.remove();
+                                }
+                            };
+                            reader.readAsDataURL(file);
+                        })
+                        .catch((errorMessage) => {
+                            // 验证失败，显示错误提示
+                            showError(container, errorMessage);
+                            // 清空文件输入
+                            inputElement.value = '';
+                        });
+                }
+            });
+        }
+        
+        // 设置所有tab的上传功能（手机）
+        setupMobileImageUpload('readingInput', 'readingBackground', 'readingHint', document.querySelector('#reading .mobile-container'));
+        setupMobileImageUpload('thinkingInput', 'thinkingBackground', 'thinkingHint', document.querySelector('#thinking .mobile-container'));
+        setupMobileImageUpload('artInput', 'artBackground', 'artHint', document.querySelector('#art .mobile-container'));
+        setupMobileImageUpload('englishInput', 'englishBackground', 'englishHint', document.querySelector('#english .mobile-container'));
+        setupMobileImageUpload('writerInput', 'writerBackground', 'writerHint', document.querySelector('#writer .mobile-container'));
+        
+        // 设置所有tab的上传功能（Pad）
+        setupPadImageUpload('padReadingInput', 'padReadingBackground', 'padReadingHint', document.querySelector('#reading .pad-container'));
+        setupPadImageUpload('padThinkingInput', 'padThinkingBackground', 'padThinkingHint', document.querySelector('#thinking .pad-container'));
+        setupPadImageUpload('padArtInput', 'padArtBackground', 'padArtHint', document.querySelector('#art .pad-container'));
+        setupPadImageUpload('padEnglishInput', 'padEnglishBackground', 'padEnglishHint', document.querySelector('#english .pad-container'));
+        setupPadImageUpload('padWriterInput', 'padWriterBackground', 'padWriterHint', document.querySelector('#writer .pad-container'));
+    </script>
+</body>
+</html>
